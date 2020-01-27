@@ -83,10 +83,11 @@ function prependHeader() {
 
 /**
  * Closure compiler warning groups used to treat warnings as errors.
+ * For a full list of closure compiler groups, consult:
+ * https://github.com/google/closure-compiler/blob/master/src/com/google/javascript/jscomp/DiagnosticGroups.java#L113
  */
 var JSCOMP_ERROR = [
   'accessControls',
-  'ambiguousFunctionDecl',
   'checkPrototypalTypes',
   'checkRegExp',
   'checkTypes',
@@ -97,13 +98,10 @@ var JSCOMP_ERROR = [
   'deprecated',
   'deprecatedAnnotations',
   'duplicateMessage',
-  // 'es3',
   'es5Strict',
   'externsValidation',
-  'fileoverviewTags',
   'functionParams',
   'globalThis',
-  'internetExplorerChecks',
   'invalidCasts',
   'misplacedTypeAnnotation',
   'missingGetCssName',
@@ -116,7 +114,6 @@ var JSCOMP_ERROR = [
   // 'missingSourcesWarnings',
   'moduleLoad',
   'msgDescriptions',
-  'newCheckTypes',
   'nonStandardJsDocs',
   // 'polymer',
   // 'reportUnknownTypes',
@@ -146,14 +143,17 @@ var JSCOMP_ERROR = [
  *     as errors.
  */
 function compile(compilerOptions, opt_verbose, opt_warnings_as_error) {
-  if (!compilerOptions) compilerOptions = {};
+  compilerOptions = compilerOptions || {};
   compilerOptions.compilation_level = 'SIMPLE_OPTIMIZATIONS';
   compilerOptions.warning_level = opt_verbose ? 'VERBOSE' : 'DEFAULT';
-  compilerOptions.language_in = 'ECMASCRIPT5_STRICT';
+  compilerOptions.language_in =
+    compilerOptions.language_in || 'ECMASCRIPT5_STRICT';
   compilerOptions.language_out = 'ECMASCRIPT5_STRICT';
   compilerOptions.rewrite_polyfills = false;
   compilerOptions.hide_warnings_for = 'node_modules';
-  if (opt_warnings_as_error) compilerOptions.jscomp_error = JSCOMP_ERROR;
+  if (opt_warnings_as_error) {
+    compilerOptions.jscomp_error = JSCOMP_ERROR;
+  }
 
   const platform = ['native', 'java', 'javascript'];
 
@@ -161,14 +161,32 @@ function compile(compilerOptions, opt_verbose, opt_warnings_as_error) {
 }
 
 /**
+ * Helper method for possibly adding the closure library into a sources array.
+ * @param {Array.<string>} srcs 
+ */
+function maybeAddClosureLibrary(srcs) {
+  if (argv.closureLibrary) {
+    // If you require the google closure library, you can include it in your
+    // build by adding the --closure-library flag.
+    // You will also need to include the "google-closure-library" in your list
+    // of devDependencies.
+    console.log('Including the google-closure-library in your build.');
+    if (!fs.existsSync('./node_modules/google-closure-library')) {
+      throw Error('You must add the google-closure-library to your ' +
+        'devDependencies in package.json, and run `npm install`.');
+    }
+    srcs.push('./node_modules/google-closure-library/closure/goog/**/**/*.js');
+  }
+  return srcs;
+}
+
+/**
  * This task builds Blockly's core files.
  *     blockly_compressed.js
  */
-gulp.task('build-core', function () {
+gulp.task('build-compressed', function (cb) {
   const defines = 'Blockly.VERSION="' + packageJson.version + '"';
-  return gulp.src([
-      'core/**/**/*.js'
-    ], {base: './'})
+  return gulp.src(maybeAddClosureLibrary(['core/**/**/*.js']), {base: './'})
     // Directories in Blockly are used to group similar files together
     // but are not used to limit access with @package, instead the
     // method means something is internal to Blockly and not a public
@@ -186,7 +204,9 @@ gulp.task('build-core', function () {
       entry_point: './core-requires.js',
       js_output_file: 'blockly_compressed.js',
       externs: ['./externs/svg-externs.js', './externs/goog-externs.js'],
-      define: defines
+      define: defines,
+      language_in:
+        argv.closureLibrary ? 'ECMASCRIPT_2015' : 'ECMASCRIPT5_STRICT'
     }, argv.verbose, argv.strict))
     .pipe(prependHeader())
     .pipe(gulp.dest('./'));
@@ -197,6 +217,9 @@ gulp.task('build-core', function () {
  *     blocks_compressed.js
  */
 gulp.task('build-blocks', function () {
+  // Add provides used throughout blocks/ in order to be compatible with the
+  // compiler.  Anything added to this list must be removed from the compiled
+  // result using the remove regex steps below.
   const provides = `
 goog.provide('Blockly');
 goog.provide('Blockly.Blocks');
@@ -212,7 +235,7 @@ goog.provide('Blockly.FieldTextInput');
 goog.provide('Blockly.FieldVariable');
 goog.provide('Blockly.Mutator');
 goog.provide('Blockly.Warning');`;
-  return gulp.src('blocks/*.js', {base: './'})
+  return gulp.src(maybeAddClosureLibrary(['blocks/*.js']), {base: './'})
     // Add Blockly.Blocks to be compatible with the compiler.
     .pipe(gulp.replace(`goog.provide('Blockly.Constants.Colour');`,
       `${provides}goog.provide('Blockly.Constants.Colour');`))
@@ -227,6 +250,8 @@ goog.provide('Blockly.Warning');`;
     .pipe(gulp.replace(/var Blockly=\{[^;]*\};\n?/, ''))
     // Remove Blockly Fields to be compatible with Blockly.
     .pipe(gulp.replace(/Blockly\.Field[^=\(]+=\{[^;]*\};/g, ''))
+    // Remove Blockly Warning, Comment & Mutator to be compatible with Blockly.
+    .pipe(gulp.replace(/Blockly\.(Comment|Warning|Mutator)=\{[^;]*\};/g, ''))
     .pipe(prependHeader())
     .pipe(gulp.dest('./'));
 });
@@ -299,10 +324,29 @@ gulp.task('build-dart', function() {
 });
 
 /**
+ * This tasks builds all the generators:
+ *     javascript_compressed.js
+ *     python_compressed.js
+ *     php_compressed.js
+ *     lua_compressed.js
+ *     dart_compressed.js
+ */
+gulp.task('build-generators', gulp.parallel(
+  'build-javascript',
+  'build-python',
+  'build-php',
+  'build-lua',
+  'build-dart'
+));
+
+/**
  * This task builds Blockly's uncompressed file.
  *     blockly_uncompressed.js
  */
 gulp.task('build-uncompressed', function() {
+  const closurePath = argv.closureLibrary ?
+    'node_modules/google-closure-library/closure/goog' :
+    'closure/goog';
   const header = `// Do not edit this file; automatically generated by gulp.
 'use strict';
 
@@ -338,40 +382,39 @@ if (this.IS_NODE_JS) {
   module.exports = Blockly;
 } else {
   document.write('<script src="' + this.BLOCKLY_DIR +
-      '/closure/goog/base.js"></script>');
+      '/${closurePath}/base.js"></script>');
   document.write('<script>this.BLOCKLY_BOOT(this);</script>');
 }
 `;
 
 let deps = [];
-return gulp.src('core/**/**/*.js')
+return gulp.src(maybeAddClosureLibrary(['core/**/**/*.js']))
   .pipe(through2.obj((file, _enc, cb) => {
-    deps.push(closureDeps.parser.parseFile(file.path).dependency);
+    const result = closureDeps.parser.parseFile(file.path);
+    for (const dep of result.dependencies) {
+      deps.push(dep);
+    }
     cb(null);
   }))
   .on('end', () => {
-    const graph = new closureDeps.depGraph.Graph(deps);
-    let addDependency = [];
-    graph.depsByPath.forEach(dep => {
-      addDependency.push('goog.addDependency(' + [
-        '"' + path.relative('./closure/goog', dep.path) + '"',
-        '[' + dep.closureSymbols
-              .map(s => `'${s}'`).join(', ') + ']',
-        '[' + dep.imports
-              .map(i => i.symOrPath)
-              .filter(i => i !== 'goog')
-              .sort()
-              .map(i => `'${i}'`).join(', ') + ']',
-      ].join(', ') + ');');
-    });
-    const requires = `
-goog.addDependency("base.js", [], []);
+    // Update the path to closure for any files that we don't know the full path
+    // of (parsed from a goog.addDependency call).
+    for (const dep of deps) {
+      dep.setClosurePath(closurePath);
+    }
+
+    const addDependency = closureDeps.depFile.getDepFileText(closurePath, deps);
+
+    const requires = `goog.addDependency("base.js", [], []);
 
 // Load Blockly.
 goog.require('Blockly.requires')
 `;
     fs.writeFileSync('blockly_uncompressed.js',
-      header + addDependency.join('\n') + requires + footer);
+      header +
+      addDependency +
+      requires +
+      footer);
   });
 });
 
@@ -405,6 +448,18 @@ gulp.task('build-langfiles', function(done) {
 });
 
 /**
+ * This tasks builds Blockly's core files:
+ *     blockly_compressed.js
+ *     blocks_compressed.js
+ *     blockly_uncompressed.js
+ */
+gulp.task('build-core', gulp.parallel(
+  'build-compressed',
+  'build-blocks',
+  'build-uncompressed'
+));
+
+/**
  * This task builds all of Blockly:
  *     blockly_compressed.js
  *     blocks_compressed.js
@@ -418,13 +473,7 @@ gulp.task('build-langfiles', function(done) {
  */
 gulp.task('build', gulp.parallel(
   'build-core',
-  'build-blocks',
-  'build-javascript',
-  'build-python',
-  'build-php',
-  'build-lua',
-  'build-dart',
-  'build-uncompressed',
+  'build-generators',
   'build-langfiles'
 ));
 
@@ -818,9 +867,15 @@ gulp.task('package-media', function() {
 /**
  * This task copies the package.json file into the distribution directory.
  */
-gulp.task('package-json', function() {
-  return gulp.src('./package.json')
-    .pipe(gulp.dest(`${packageDistribution}`))
+gulp.task('package-json', function(cb) {
+  const json = Object.assign({}, packageJson);
+  delete json['scripts'];
+  if (!fs.existsSync(packageDistribution)) {
+    fs.mkdirSync(packageDistribution);
+  }
+  fs.writeFileSync(`${packageDistribution}/package.json`,
+      JSON.stringify(json, null, 2));
+  cb();
 });
 
 /**
@@ -867,17 +922,6 @@ gulp.task('package', gulp.parallel(
   'package-dts'
   ));
 
-// The release task prepares Blockly for an npm release.
-// It rebuilds the Blockly compressed files and updates the TypeScript
-// typings, and then packages all the npm release files into the /dist directory
-gulp.task('release', gulp.series(['build', 'typings', function() {
-  // Clean directory if exists
-  if (fs.existsSync(packageDistribution)) {
-    rimraf.sync(packageDistribution);
-  }
-  fs.mkdirSync(packageDistribution);
-}, 'package']));
-
 // The default task builds Blockly.
 gulp.task('default', gulp.series(['build']));
 
@@ -919,7 +963,7 @@ function getRCBranchName() {
 };
 
 // Recompile and push to origin.
-gulp.task('recompile', gulp.series([
+gulp.task('git-recompile', gulp.series([
     'git-sync-develop',
     function(done) {
       var branchName = getRebuildBranchName();
@@ -928,6 +972,7 @@ gulp.task('recompile', gulp.series([
       done();
     },
     'build',
+    'typings',
     function(done) {
       console.log('push-rebuild-branch: committing rebuild');
       execSync('git commit -am "Rebuild"', { stdio: 'inherit' });
@@ -949,6 +994,8 @@ gulp.task('git-create-rc', gulp.series([
       execSync('git checkout -b ' + branchName, { stdio: 'inherit' });
       execSync('git push ' + upstream_url + ' ' + branchName,
           { stdio: 'inherit' });
+      execSync('git checkout -b gh-pages');
+      execSync('git push ' + upstream_url + ' gh-pages');
       done();
     },
   ])

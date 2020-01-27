@@ -28,6 +28,7 @@ goog.require('Blockly.Events.VarDelete');
 goog.require('Blockly.Events.VarRename');
 goog.require('Blockly.Msg');
 goog.require('Blockly.utils');
+goog.require('Blockly.utils.object');
 
 
 /**
@@ -355,11 +356,13 @@ Blockly.VariableMap.prototype.getVariablesOfType = function(type) {
  * @package
  */
 Blockly.VariableMap.prototype.getVariableTypes = function(ws) {
-  var potentialTypes = [];
+  var variableMap = {};
+  Blockly.utils.object.mixin(variableMap, this.variableMap_);
   if (ws && ws.getPotentialVariableMap()) {
-    potentialTypes = Object.keys(ws.getPotentialVariableMap().variableMap_);
+    Blockly.utils.object.mixin(variableMap,
+        ws.getPotentialVariableMap().variableMap_);
   }
-  var types = Object.keys(this.variableMap_).concat(potentialTypes);
+  var types = Object.keys(variableMap);
   var hasEmpty = false;
   for (var i = 0; i < types.length; i++) {
     if (types[i] == '') {
@@ -382,6 +385,21 @@ Blockly.VariableMap.prototype.getAllVariables = function() {
     all_variables = all_variables.concat(this.variableMap_[key]);
   }
   return all_variables;
+};
+
+/**
+ * Returns all of the variable names of all types.
+ * @return {!Array<string>} All of the variable names of all types.
+ */
+Blockly.VariableMap.prototype.getAllVariableNames = function() {
+  var allNames = [];
+  for (var key in this.variableMap_) {
+    var variables = this.variableMap_[key];
+    for (var i = 0, variable; (variable = variables[i]); i++) {
+      allNames.push(variable.name);
+    }
+  }
+  return allNames;
 };
 
 /**

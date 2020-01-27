@@ -496,8 +496,9 @@ Blockly.Gesture.prototype.doStart = function(e) {
   Blockly.Tooltip.block();
 
   if (this.targetBlock_) {
-    if (!this.targetBlock_.isInFlyout && e.shiftKey) {
-      Blockly.navigation.enableKeyboardAccessibility();
+    if (!this.targetBlock_.isInFlyout &&
+        e.shiftKey &&
+        this.targetBlock_.workspace.keyboardAccessibilityMode) {
       this.creatorWorkspace_.getCursor().setCurNode(
           Blockly.navigation.getTopNode(this.targetBlock_));
     } else {
@@ -730,7 +731,7 @@ Blockly.Gesture.prototype.doBubbleClick_ = function() {
  * @private
  */
 Blockly.Gesture.prototype.doFieldClick_ = function() {
-  this.startField_.showEditor();
+  this.startField_.showEditor(this.mostRecentEvent_);
   this.bringBlockToFront_();
 };
 
@@ -765,8 +766,7 @@ Blockly.Gesture.prototype.doBlockClick_ = function() {
  */
 Blockly.Gesture.prototype.doWorkspaceClick_ = function(e) {
   var ws = this.creatorWorkspace_;
-  if (e.shiftKey) {
-    Blockly.navigation.enableKeyboardAccessibility();
+  if (e.shiftKey && ws.keyboardAccessibilityMode) {
     var screenCoord = new Blockly.utils.Coordinate(e.clientX, e.clientY);
     var wsCoord = Blockly.utils.screenToWsCoordinates(ws, screenCoord);
     var wsNode = Blockly.ASTNode.createWorkspaceNode(ws, wsCoord);

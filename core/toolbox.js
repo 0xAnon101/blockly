@@ -163,8 +163,9 @@ Blockly.Toolbox.prototype.init = function() {
   this.HtmlDiv.setAttribute('dir', workspace.RTL ? 'RTL' : 'LTR');
   svg.parentNode.insertBefore(this.HtmlDiv, svg);
   var themeManager = workspace.getThemeManager();
-  themeManager.subscribe(this.HtmlDiv, 'toolbox', 'background-color');
-  themeManager.subscribe(this.HtmlDiv, 'toolboxText', 'color');
+  themeManager.subscribe(this.HtmlDiv, 'toolboxBackgroundColour',
+      'background-color');
+  themeManager.subscribe(this.HtmlDiv, 'toolboxForegroundColour', 'color');
 
   // Clicking on toolbox closes popups.
   Blockly.bindEventWithChecks_(this.HtmlDiv, 'mousedown', this,
@@ -178,14 +179,17 @@ Blockly.Toolbox.prototype.init = function() {
         }
         Blockly.Touch.clearTouchIdentifier();  // Don't block future drags.
       }, /* opt_noCaptureIdentifier */ false, /* opt_noPreventDefault */ true);
-  var workspaceOptions = /** @type {!Blockly.Options} */ ({
-    parentWorkspace: workspace,
-    RTL: workspace.RTL,
-    oneBasedIndex: workspace.options.oneBasedIndex,
-    horizontalLayout: workspace.horizontalLayout,
-    toolboxPosition: workspace.options.toolboxPosition,
-    renderer: workspace.options.renderer
-  });
+  var workspaceOptions = new Blockly.Options(
+      /** @type {!Blockly.BlocklyOptions} */
+      ({
+        'parentWorkspace': workspace,
+        'rtl': workspace.RTL,
+        'oneBasedIndex': workspace.options.oneBasedIndex,
+        'horizontalLayout': workspace.horizontalLayout,
+        'renderer': workspace.options.renderer
+      }));
+  workspaceOptions.toolboxPosition = workspace.options.toolboxPosition;
+  
   if (workspace.horizontalLayout) {
     if (!Blockly.HorizontalFlyout) {
       throw Error('Missing require for Blockly.HorizontalFlyout');
@@ -553,7 +557,7 @@ Blockly.Toolbox.prototype.setColourFromStyle_ = function(
   childOut.styleName = styleName;
   var theme = this.workspace_.getTheme();
   if (styleName && theme) {
-    var style = theme.getCategoryStyle(styleName);
+    var style = theme.categoryStyles[styleName];
     if (style && style.colour) {
       this.setColour_(style.colour, childOut, categoryName);
     } else {

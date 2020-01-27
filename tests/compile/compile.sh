@@ -57,7 +57,7 @@ tempPath="$BLOCKLY_ROOT/temp_core"
 corePath="$BLOCKLY_ROOT/core/*"
 mkdir $tempPath
 cp $corePath $tempPath
-
+cp "$BLOCKLY_ROOT/tests/compile/test_blocks.js" "$tempPath/test_blocks.js"
 # Copy over all files in core and any subdirectories to the temp_core directory.
 for dir in "$corePath/" ; do
   # For all files in the directory and any subdirectories rename them to
@@ -83,7 +83,7 @@ COMPILATION_COMMAND="java -jar $COMPILER --js='$BLOCKLY_ROOT/tests/compile/main.
   --compilation_level ADVANCED_OPTIMIZATIONS \
   --language_in ECMASCRIPT5_STRICT \
   --language_out ECMASCRIPT5_STRICT \
-  --dependency_mode=STRICT --entry_point=Main \
+  --dependency_mode=PRUNE --entry_point=Main \
   --js_output_file $BLOCKLY_ROOT/tests/compile/main_compressed.js"
 echo "$COMPILATION_COMMAND"
 $COMPILATION_COMMAND

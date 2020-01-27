@@ -34,6 +34,7 @@ goog.require('Blockly.MenuItem');
 goog.require('Blockly.navigation');
 goog.require('Blockly.utils');
 goog.require('Blockly.utils.aria');
+goog.require('Blockly.utils.Coordinate');
 goog.require('Blockly.utils.dom');
 goog.require('Blockly.utils.object');
 goog.require('Blockly.utils.Size');
@@ -77,20 +78,19 @@ Blockly.FieldDropdown = function(menuGenerator, opt_validator, opt_config) {
    */
   this.generatedOptions_ = null;
 
+  this.trimOptions_();
+
   /**
-   * The currently selected index. The field is initialized with the
+   * The currently selected option. The field is initialized with the
    * first option selected.
-   * @type {number}
+   * @type {!Object}
    * @private
    */
-  this.selectedIndex_ = 0;
-
-  this.trimOptions_();
-  var firstTuple = this.getOptions(false)[0];
+  this.selectedOption_ = this.getOptions(false)[0];
 
   // Call parent's constructor.
   Blockly.FieldDropdown.superClass_.constructor.call(
-      this, firstTuple[1], opt_validator, opt_config);
+      this, this.selectedOption_[1], opt_validator, opt_config);
 
   /**
    * A reference to the currently selected menu item.
@@ -202,7 +202,12 @@ Blockly.FieldDropdown.prototype.CURSOR = 'default';
  * @package
  */
 Blockly.FieldDropdown.prototype.initView = function() {
-  Blockly.FieldDropdown.superClass_.initView.call(this);
+  if (this.shouldAddBorderRect_()) {
+    this.createBorderRect_();
+  } else {
+    this.clickTarget_ = this.sourceBlock_.getSvgRoot();
+  }
+  this.createTextElement_();
 
   this.imageElement_ = /** @type {!SVGImageElement} */
       (Blockly.utils.dom.createSvgElement('image', {}, this.fieldGroup_));
@@ -212,6 +217,21 @@ Blockly.FieldDropdown.prototype.initView = function() {
   } else {
     this.createTextArrow_();
   }
+
+  if (this.borderRect_) {
+    Blockly.utils.dom.addClass(this.borderRect_, 'blocklyDropdownRect');
+  }
+};
+
+/**
+ * Whether or not the dropdown should add a border rect.
+ * @return {boolean} True if the dropdown field should add a border rect.
+ * @protected
+ */
+Blockly.FieldDropdown.prototype.shouldAddBorderRect_ = function() {
+  return !this.constants_.FIELD_DROPDOWN_NO_BORDER_RECT_SHADOW ||
+      (this.constants_.FIELD_DROPDOWN_NO_BORDER_RECT_SHADOW &&
+          !this.sourceBlock_.isShadow());
 };
 
 /**
@@ -247,10 +267,18 @@ Blockly.FieldDropdown.prototype.createSVGArrow_ = function() {
 
 /**
  * Create a dropdown menu under the text.
+ * @param {Event=} opt_e Optional mouse event that triggered the field to open,
+ *     or undefined if triggered programmatically.
  * @private
  */
-Blockly.FieldDropdown.prototype.showEditor_ = function() {
+Blockly.FieldDropdown.prototype.showEditor_ = function(opt_e) {
   this.menu_ = this.dropdownCreate_();
+  if (opt_e && typeof opt_e.clientX === 'number') {
+    this.menu_.openingCoords =
+        new Blockly.utils.Coordinate(opt_e.clientX, opt_e.clientY);
+  } else {
+    this.menu_.openingCoords = null;
+  }
   // Element gets created in render.
   this.menu_.render(Blockly.DropDownDiv.getContentDiv());
   Blockly.utils.dom.addClass(
@@ -260,8 +288,10 @@ Blockly.FieldDropdown.prototype.showEditor_ = function() {
     var primaryColour = (this.sourceBlock_.isShadow()) ?
         this.sourceBlock_.getParent().getColour() :
         this.sourceBlock_.getColour();
-    Blockly.DropDownDiv.setColour(primaryColour,
-        this.sourceBlock_.style.colourTertiary);
+    var borderColour = (this.sourceBlock_.isShadow()) ?
+        this.sourceBlock_.getParent().style.colourTertiary :
+        this.sourceBlock_.style.colourTertiary;
+    Blockly.DropDownDiv.setColour(primaryColour, borderColour);
   }
 
   Blockly.DropDownDiv.showPositionedByField(
@@ -498,7 +528,7 @@ Blockly.FieldDropdown.prototype.doValueUpdate_ = function(newValue) {
   var options = this.getOptions(true);
   for (var i = 0, option; (option = options[i]); i++) {
     if (option[1] == this.value_) {
-      this.selectedIndex_ = i;
+      this.selectedOption_ = option;
     }
   }
 };
@@ -515,8 +545,7 @@ Blockly.FieldDropdown.prototype.applyColour = function() {
       this.borderRect_.setAttribute('fill',
           this.sourceBlock_.style.colourTertiary);
     } else {
-      this.borderRect_.setAttribute('fill',
-          this.sourceBlock_.style.colourPrimary);
+      this.borderRect_.setAttribute('fill', 'transparent');
     }
   }
   // Update arrow's colour.
@@ -539,16 +568,17 @@ Blockly.FieldDropdown.prototype.render_ = function() {
   this.imageElement_.style.display = 'none';
 
   // Show correct element.
-  var options = this.getOptions(true);
-  var selectedOption = this.selectedIndex_ >= 0 &&
-      options[this.selectedIndex_][0];
-  if (selectedOption && typeof selectedOption == 'object') {
-    this.renderSelectedImage_(selectedOption);
+  var option = this.selectedOption_ && this.selectedOption_[0];
+  if (option && typeof option == 'object') {
+    this.renderSelectedImage_(
+        /** @type {!Blockly.FieldDropdown.ImageProperties} */ (option));
   } else {
     this.renderSelectedText_();
   }
-  this.borderRect_.setAttribute('height', this.size_.height);
-  this.borderRect_.setAttribute('width', this.size_.width);
+  if (this.borderRect_) {
+    this.borderRect_.setAttribute('height', this.size_.height);
+    this.borderRect_.setAttribute('width', this.size_.width);
+  }
 };
 
 /**
@@ -568,11 +598,12 @@ Blockly.FieldDropdown.prototype.renderSelectedImage_ = function(imageJson) {
   var imageWidth = Number(imageJson.width);
 
   // Height and width include the border rect.
+  var hasBorder = !!this.borderRect_;
   this.size_.height = Math.max(
-      this.constants_.FIELD_DROPDOWN_BORDER_RECT_HEIGHT,
+      hasBorder ? this.constants_.FIELD_DROPDOWN_BORDER_RECT_HEIGHT : 0,
       imageHeight + Blockly.FieldDropdown.IMAGE_Y_PADDING);
   var halfHeight = this.size_.height / 2;
-  var xPadding = this.constants_.FIELD_BORDER_RECT_X_PADDING;
+  var xPadding = hasBorder ? this.constants_.FIELD_BORDER_RECT_X_PADDING : 0;
   var arrowWidth = 0;
   if (this.svgArrow_) {
     arrowWidth = this.positionSVGArrow_(imageWidth + xPadding, halfHeight -
@@ -612,15 +643,16 @@ Blockly.FieldDropdown.prototype.renderSelectedText_ = function() {
   this.textElement_.setAttribute('text-anchor', 'start');
 
   // Height and width include the border rect.
+  var hasBorder = !!this.borderRect_;
   this.size_.height = Math.max(
-      this.constants_.FIELD_DROPDOWN_BORDER_RECT_HEIGHT,
+      hasBorder ? this.constants_.FIELD_DROPDOWN_BORDER_RECT_HEIGHT : 0,
       this.constants_.FIELD_TEXT_HEIGHT);
   var halfHeight = this.size_.height / 2;
   var textWidth = Blockly.utils.dom.getFastTextWidth(this.textElement_,
       this.constants_.FIELD_TEXT_FONTSIZE,
       this.constants_.FIELD_TEXT_FONTWEIGHT,
       this.constants_.FIELD_TEXT_FONTFAMILY);
-  var xPadding = this.constants_.FIELD_BORDER_RECT_X_PADDING;
+  var xPadding = hasBorder ? this.constants_.FIELD_BORDER_RECT_X_PADDING : 0;
   var arrowWidth = 0;
   if (this.svgArrow_) {
     arrowWidth = this.positionSVGArrow_(textWidth + xPadding, halfHeight -
@@ -633,7 +665,9 @@ Blockly.FieldDropdown.prototype.renderSelectedText_ = function() {
   this.textElement_.setAttribute('y', halfHeight);
   if (!this.constants_.FIELD_TEXT_BASELINE_CENTER) {
     this.textElement_.setAttribute('dy',
-        this.constants_.FIELD_TEXT_BASELINE_Y - halfHeight);
+        this.constants_.FIELD_TEXT_BASELINE_Y -
+        this.constants_.FIELD_TEXT_HEIGHT / 2 +
+        this.constants_.FIELD_TEXT_Y_OFFSET);
   }
 };
 
@@ -648,12 +682,14 @@ Blockly.FieldDropdown.prototype.positionSVGArrow_ = function(x, y) {
   if (!this.svgArrow_) {
     return 0;
   }
-  var padding = this.constants_.FIELD_BORDER_RECT_X_PADDING;
+  var hasBorder = !!this.borderRect_;
+  var xPadding = hasBorder ? this.constants_.FIELD_BORDER_RECT_X_PADDING : 0;
+  var textPadding = this.constants_.FIELD_DROPDOWN_SVG_ARROW_PADDING;
   var svgArrowSize = this.constants_.FIELD_DROPDOWN_SVG_ARROW_SIZE;
-  var arrowX = this.sourceBlock_.RTL ? padding : x + padding;
+  var arrowX = this.sourceBlock_.RTL ? xPadding : x + textPadding;
   this.svgArrow_.setAttribute('transform',
       'translate(' + arrowX + ',' + y + ')');
-  return svgArrowSize + padding;
+  return svgArrowSize + textPadding;
 };
 
 /**
@@ -665,15 +701,14 @@ Blockly.FieldDropdown.prototype.positionSVGArrow_ = function(x, y) {
  * @override
  */
 Blockly.FieldDropdown.prototype.getText_ = function() {
-  if (this.selectedIndex_ < 0) {
+  if (!this.selectedOption_) {
     return null;
   }
-  var options = this.getOptions(true);
-  var selectedOption = options[this.selectedIndex_][0];
-  if (typeof selectedOption == 'object') {
-    return selectedOption['alt'];
+  var option = this.selectedOption_[0];
+  if (typeof option == 'object') {
+    return option['alt'];
   }
-  return selectedOption;
+  return option;
 };
 
 /**

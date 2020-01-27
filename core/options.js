@@ -87,11 +87,7 @@ Blockly.Options = function(options) {
     horizontalLayout = false;
   }
   var toolboxAtStart = options['toolboxPosition'];
-  if (toolboxAtStart === 'end') {
-    toolboxAtStart = false;
-  } else {
-    toolboxAtStart = true;
-  }
+  toolboxAtStart = toolboxAtStart !== 'end';
 
   if (horizontalLayout) {
     var toolboxPosition = toolboxAtStart ?
@@ -146,6 +142,20 @@ Blockly.Options = function(options) {
   this.theme = Blockly.Options.parseThemeOptions_(options);
   this.keyMap = keyMap;
   this.renderer = renderer;
+
+  /**
+   * The SVG element for the grid pattern.
+   * Created during injection.
+   * @type {!SVGElement}
+   */
+  this.gridPattern = undefined;
+
+  /**
+   * The parent of the current workspace, or null if there is no parent
+   * workspace.
+   * @type {Blockly.Workspace}
+   */
+  this.parentWorkspace = options['parentWorkspace'];
 };
 
 /**
@@ -154,12 +164,6 @@ Blockly.Options = function(options) {
  * @interface
  */
 Blockly.BlocklyOptions = function() {};
-
-/**
- * The parent of the current workspace, or null if there is no parent workspace.
- * @type {Blockly.Workspace}
- */
-Blockly.Options.prototype.parentWorkspace = null;
 
 /**
  * If set, sets the translation of the workspace to match the scrollbars.
@@ -270,7 +274,8 @@ Blockly.Options.parseGridOptions_ = function(options) {
   var gridOptions = {};
   gridOptions.spacing = Number(grid['spacing']) || 0;
   gridOptions.colour = grid['colour'] || '#888';
-  gridOptions.length = Number(grid['length']) || 1;
+  gridOptions.length =
+      (grid['length'] === undefined) ? 1 : Number(grid['length']);
   gridOptions.snap = gridOptions.spacing > 0 && !!grid['snap'];
   return gridOptions;
 };

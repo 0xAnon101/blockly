@@ -30,7 +30,7 @@ goog.require('Blockly.Events.BlockCreate');
 goog.require('Blockly.Events.VarCreate');
 goog.require('Blockly.FlyoutCursor');
 goog.require('Blockly.Gesture');
-goog.require('Blockly.MarkerCursor');
+goog.require('Blockly.Marker');
 goog.require('Blockly.Scrollbar');
 goog.require('Blockly.Tooltip');
 goog.require('Blockly.Touch');
@@ -57,8 +57,6 @@ Blockly.Flyout = function(workspaceOptions) {
    */
   this.workspace_ = new Blockly.WorkspaceSvg(workspaceOptions);
   this.workspace_.isFlyout = true;
-  this.workspace_.setCursor(new Blockly.FlyoutCursor());
-  this.workspace_.setMarker(new Blockly.MarkerCursor());
 
   /**
    * Is RTL vs LTR.
@@ -230,9 +228,10 @@ Blockly.Flyout.prototype.createDom = function(tagName) {
       {'class': 'blocklyFlyoutBackground'}, this.svgGroup_);
   this.svgGroup_.appendChild(this.workspace_.createDom());
   this.workspace_.getThemeManager().subscribe(
-      this.svgBackground_, 'flyout', 'fill');
+      this.svgBackground_, 'flyoutBackgroundColour', 'fill');
   this.workspace_.getThemeManager().subscribe(
       this.svgBackground_, 'flyoutOpacity', 'fill-opacity');
+  this.workspace_.getMarkerManager().setCursor(new Blockly.FlyoutCursor());
   return this.svgGroup_;
 };
 

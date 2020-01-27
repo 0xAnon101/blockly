@@ -86,13 +86,6 @@ Blockly.FieldTextInput = function(opt_value, opt_validator, opt_config) {
   this.onKeyInputWrapper_ = null;
 
   /**
-   * Blur input event data.
-   * @type {?Blockly.EventData}
-   * @private
-   */
-  this.onBlurInputWrapper_ = null;
-
-  /**
    * Whether the field should consider the whole parent block to be its click
    * target.
    * @type {?boolean}
@@ -154,10 +147,8 @@ Blockly.FieldTextInput.prototype.initView = function() {
 
     // Count the number of fields, excluding text fields
     for (var i = 0, input; (input = this.sourceBlock_.inputList[i]); i++) {
-      for (var j = 0, field; (field = input.fieldRow[j]); j++) {
-        if (!(field instanceof Blockly.FieldLabel)) {
-          nFields ++;
-        }
+      for (var j = 0; (input.fieldRow[j]); j++) {
+        nFields ++;
       }
       if (input.connection) {
         nConnections++;
@@ -237,12 +228,12 @@ Blockly.FieldTextInput.prototype.doValueUpdate_ = function(newValue) {
  */
 Blockly.FieldTextInput.prototype.applyColour = function() {
   if (this.sourceBlock_ && this.constants_.FULL_BLOCK_FIELDS) {
-    if (this.sourceBlock_.isShadow()) {
-      this.sourceBlock_.pathObject.svgPath.setAttribute('fill', '#fff');
-    } else if (this.borderRect_) {
+    if (this.borderRect_) {
       this.borderRect_.setAttribute('stroke',
           this.sourceBlock_.style.colourTertiary);
-      this.borderRect_.setAttribute('fill', '#fff');
+    } else {
+      this.sourceBlock_.pathObject.svgPath.setAttribute('fill',
+          this.constants_.FIELD_BORDER_RECT_COLOUR);
     }
   }
 };
@@ -287,11 +278,14 @@ Blockly.FieldTextInput.prototype.setSpellcheck = function(check) {
 
 /**
  * Show the inline free-text editor on top of the text.
+ * @param {Event=} _opt_e Optional mouse event that triggered the field to open,
+ *     or undefined if triggered programmatically.
  * @param {boolean=} opt_quietInput True if editor should be created without
  *     focus.  Defaults to false.
  * @protected
  */
-Blockly.FieldTextInput.prototype.showEditor_ = function(opt_quietInput) {
+Blockly.FieldTextInput.prototype.showEditor_ = function(_opt_e,
+    opt_quietInput) {
   this.workspace_ = this.sourceBlock_.workspace;
   var quietInput = opt_quietInput || false;
   if (!quietInput && (Blockly.utils.userAgent.MOBILE ||
@@ -431,9 +425,6 @@ Blockly.FieldTextInput.prototype.bindInputEvents_ = function(htmlInput) {
   this.onKeyInputWrapper_ =
       Blockly.bindEventWithChecks_(
           htmlInput, 'input', this, this.onHtmlInputChange_);
-  this.onBlurInputWrapper_ =
-      Blockly.bindEventWithChecks_(
-          htmlInput, 'blur', this, this.onHtmlInputBlur_);
 };
 
 /**
@@ -448,10 +439,6 @@ Blockly.FieldTextInput.prototype.unbindInputEvents_ = function() {
   if (this.onKeyInputWrapper_) {
     Blockly.unbindEvent_(this.onKeyInputWrapper_);
     this.onKeyInputWrapper_ = null;
-  }
-  if (this.onBlurInputWrapper_) {
-    Blockly.unbindEvent_(this.onBlurInputWrapper_);
-    this.onBlurInputWrapper_ = null;
   }
 };
 
@@ -496,16 +483,6 @@ Blockly.FieldTextInput.prototype.onHtmlInputChange_ = function(_e) {
     this.resizeEditor_();
     Blockly.Events.setGroup(false);
   }
-};
-
-/**
- * Handle blur for the editor.
- * @param {!Event} _e Focus event.
- * @protected
- */
-Blockly.FieldTextInput.prototype.onHtmlInputBlur_ = function(_e) {
-  Blockly.WidgetDiv.hide();
-  Blockly.DropDownDiv.hideWithoutAnimation();
 };
 
 /**
@@ -633,46 +610,6 @@ Blockly.FieldTextInput.prototype.getEditorText_ = function(value) {
  */
 Blockly.FieldTextInput.prototype.getValueFromEditorText_ = function(text) {
   return text;
-};
-
-/**
- * @override
- */
-Blockly.FieldTextInput.prototype.getScaledBBox = function() {
-  if (!this.borderRect_) {
-    // Browsers are inconsistent in what they return for a bounding box.
-    // - Webkit / Blink: fill-box / object bounding box
-    // - Gecko / Triden / EdgeHTML: stroke-box
-    var bBox = this.sourceBlock_.getHeightWidth();
-    var scale = this.sourceBlock_.workspace.scale;
-    var xy = this.getAbsoluteXY_();
-    var scaledWidth = bBox.width * scale;
-    var scaledHeight = bBox.height * scale;
-
-    if (Blockly.utils.userAgent.GECKO) {
-      xy.x += 1.5 * scale;
-      xy.y += 1.5 * scale;
-      scaledWidth += 1 * scale;
-      scaledHeight += 1 * scale;
-    } else {
-      if (!Blockly.utils.userAgent.EDGE && !Blockly.utils.userAgent.IE) {
-        xy.x -= 0.5 * scale;
-        xy.y -= 0.5 * scale;
-      }
-      scaledWidth += 1 * scale;
-      scaledHeight += 1 * scale;
-    }
-  } else {
-    var xy = this.borderRect_.getBoundingClientRect();
-    var scaledWidth = xy.width;
-    var scaledHeight = xy.height;
-  }
-  return {
-    top: xy.y,
-    bottom: xy.y + scaledHeight,
-    left: xy.x,
-    right: xy.x + scaledWidth
-  };
 };
 
 Blockly.fieldRegistry.register('field_input', Blockly.FieldTextInput);

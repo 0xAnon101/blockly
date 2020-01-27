@@ -73,6 +73,16 @@ Blockly.Mutator.prototype.setBlock = function(block) {
 };
 
 /**
+ * Returns the workspace inside this mutator icon's bubble.
+ * @return {Blockly.WorkspaceSvg} The workspace inside this mutator icon's
+ *     bubble.
+ * @package
+ */
+Blockly.Mutator.prototype.getWorkspace = function() {
+  return this.workspace_;
+};
+
+/**
  * Draw the mutator icon.
  * @param {!Element} group The icon group.
  * @private
@@ -151,21 +161,22 @@ Blockly.Mutator.prototype.createEditor_ = function() {
   } else {
     var quarkXml = null;
   }
-  var workspaceOptions = /** @type {!Blockly.Options} */ ({
-    // If you want to enable disabling, also remove the
-    // event filter from workspaceChanged_ .
-    disable: false,
-    languageTree: quarkXml,
-    parentWorkspace: this.block_.workspace,
-    pathToMedia: this.block_.workspace.options.pathToMedia,
-    RTL: this.block_.RTL,
-    toolboxPosition: this.block_.RTL ? Blockly.TOOLBOX_AT_RIGHT :
-        Blockly.TOOLBOX_AT_LEFT,
-    horizontalLayout: false,
-    getMetrics: this.getFlyoutMetrics_.bind(this),
-    setMetrics: null,
-    renderer: this.block_.workspace.options.renderer
-  });
+  var workspaceOptions = new Blockly.Options(
+      /** @type {!Blockly.BlocklyOptions} */
+      ({
+        // If you want to enable disabling, also remove the
+        // event filter from workspaceChanged_ .
+        'disable': false,
+        'parentWorkspace': this.block_.workspace,
+        'media': this.block_.workspace.options.pathToMedia,
+        'rtl': this.block_.RTL,
+        'horizontalLayout': false,
+        'renderer': this.block_.workspace.options.renderer
+      }));
+  workspaceOptions.toolboxPosition = this.block_.RTL ? Blockly.TOOLBOX_AT_RIGHT :
+      Blockly.TOOLBOX_AT_LEFT;
+  workspaceOptions.languageTree = quarkXml;
+  workspaceOptions.getMetrics = this.getFlyoutMetrics_.bind(this);
   this.workspace_ = new Blockly.WorkspaceSvg(workspaceOptions);
   this.workspace_.isMutator = true;
   this.workspace_.addChangeListener(Blockly.Events.disableOrphans);
@@ -372,15 +383,14 @@ Blockly.Mutator.prototype.workspaceChanged_ = function(e) {
     var block = this.block_;
     var oldMutationDom = block.mutationToDom();
     var oldMutation = oldMutationDom && Blockly.Xml.domToText(oldMutationDom);
-    // Switch off rendering while the source block is rebuilt.
-    var savedRendered = block.rendered;
-    block.rendered = false;
     // Allow the source block to rebuild itself.
     block.compose(this.rootBlock_);
-    // Restore rendering and show the changes.
-    block.rendered = savedRendered;
-    // Mutation may have added some elements that need initializing.
     block.initSvg();
+    block.render();
+
+    if (Blockly.getMainWorkspace().keyboardAccessibilityMode) {
+      Blockly.navigation.moveCursorOnBlockMutation(block);
+    }
     var newMutationDom = block.mutationToDom();
     var newMutation = newMutationDom && Blockly.Xml.domToText(newMutationDom);
     if (oldMutation != newMutation) {
@@ -394,14 +404,7 @@ Blockly.Mutator.prototype.workspaceChanged_ = function(e) {
         Blockly.Events.setGroup(false);
       }, Blockly.BUMP_DELAY);
     }
-    if (block.rendered) {
-      block.render();
-    }
 
-    if (oldMutation != newMutation &&
-        this.workspace_.keyboardAccessibilityMode) {
-      Blockly.navigation.moveCursorOnBlockMutation(block);
-    }
     // Don't update the bubble until the drag has ended, to avoid moving blocks
     // under the cursor.
     if (!this.workspace_.isDragging()) {

@@ -34,13 +34,16 @@ goog.require('Blockly.utils.object');
  * An object that handles creating and setting each of the SVG elements
  * used by the renderer.
  * @param {!SVGElement} root The root SVG element.
+ * @param {!Blockly.Theme.BlockStyle} style The style object to use for
+ *     colouring.
  * @param {!Blockly.zelos.ConstantProvider} constants The renderer's constants.
  * @constructor
  * @extends {Blockly.blockRendering.PathObject}
  * @package
  */
-Blockly.zelos.PathObject = function(root, constants) {
-  Blockly.zelos.PathObject.superClass_.constructor.call(this, root, constants);
+Blockly.zelos.PathObject = function(root, style, constants) {
+  Blockly.zelos.PathObject.superClass_.constructor.call(this, root, style,
+      constants);
 
   /**
    * The renderer's constant provider.
@@ -71,6 +74,13 @@ Blockly.zelos.PathObject = function(root, constants) {
    * @private
    */
   this.remainingOutlines_ = null;
+
+  /**
+   * The type of block's output connection shape.  This is set when a block with
+   * an output connection is drawn.
+   * @package
+   */
+  this.outputShapeType = null;
 };
 Blockly.utils.object.inherits(Blockly.zelos.PathObject,
     Blockly.blockRendering.PathObject);
@@ -94,7 +104,7 @@ Blockly.zelos.PathObject.prototype.applyColour = function(block) {
   if (block.isShadow() && block.getParent()) {
     this.svgPath.setAttribute('stroke', block.getParent().style.colourTertiary);
   }
-  
+
   // Apply colour to outlines.
   for (var i = 0, keys = Object.keys(this.outlines_),
     key; (key = keys[i]); i++) {
@@ -117,21 +127,6 @@ Blockly.zelos.PathObject.prototype.flipRTL = function() {
 /**
  * @override
  */
-Blockly.zelos.PathObject.prototype.updateDisabled_ = function(
-    disabled) {
-  Blockly.zelos.PathObject.superClass_.updateDisabled_.call(this, disabled);
-  for (var i = 0, keys = Object.keys(this.outlines_),
-    key; (key = keys[i]); i++) {
-    if (disabled) {
-      this.outlines_[key].setAttribute('fill',
-          'url(#' + this.constants_.disabledPatternId + ')');
-    }
-  }
-};
-
-/**
- * @override
- */
 Blockly.zelos.PathObject.prototype.updateSelected = function(enable) {
   this.setClass_('blocklySelected', enable);
   if (enable) {
@@ -140,7 +135,7 @@ Blockly.zelos.PathObject.prototype.updateSelected = function(enable) {
         /** @type {!SVGElement} */ (this.svgPath.cloneNode(true));
       this.svgPathSelected_.setAttribute('fill', 'none');
       this.svgPathSelected_.setAttribute('filter',
-          'url(#' + this.constants_.highlightGlowFilterId + ')');
+          'url(#' + this.constants_.selectedGlowFilterId + ')');
       this.svgRoot.appendChild(this.svgPathSelected_);
     }
   } else {
@@ -154,7 +149,7 @@ Blockly.zelos.PathObject.prototype.updateSelected = function(enable) {
 /**
  * @override
  */
-Blockly.zelos.PathObject.prototype.updateReplacementHighlight = function(
+Blockly.zelos.PathObject.prototype.updateReplacementFade = function(
     enable) {
   this.setClass_('blocklyReplaceable', enable);
   if (enable) {

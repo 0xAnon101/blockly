@@ -68,14 +68,15 @@ Blockly.BlockSvg = function(workspace, prototypeName, opt_id) {
    * A block style object.
    * @type {!Blockly.Theme.BlockStyle}
    */
-  this.style = workspace.getTheme().getBlockStyle(null);
+  this.style = workspace.getRenderer().getConstants().getBlockStyle(null);
 
   /**
    * The renderer's path object.
    * @type {Blockly.blockRendering.IPathObject}
    * @package
    */
-  this.pathObject = workspace.getRenderer().makePathObject(this.svgGroup_);
+  this.pathObject = workspace.getRenderer().makePathObject(
+      this.svgGroup_, this.style);
 
   /** @type {boolean} */
   this.rendered = false;
@@ -155,24 +156,6 @@ Blockly.BlockSvg.INLINE = -1;
  */
 Blockly.BlockSvg.COLLAPSED_WARNING_ID = 'TEMP_COLLAPSED_WARNING_';
 
-// Leftover UI constants from block_render_svg.js.
-
-/**
- * Minimum height of a block.
- * @const
- * @package
- */
-// TODO (#3142): Remove.
-Blockly.BlockSvg.MIN_BLOCK_Y = 25;
-
-/**
- * Do blocks with no previous or output connections have a 'hat' on top?
- * @const
- * @package
- */
-// TODO (#3142): Remove.
-Blockly.BlockSvg.START_HAT = false;
-
 /**
  * An optional method called when a mutator dialog is first opened.
  * This function must create and initialize a top-level block for the mutator
@@ -233,6 +216,49 @@ Blockly.BlockSvg.prototype.initSvg = function() {
   if (!svg.parentNode) {
     this.workspace.getCanvas().appendChild(svg);
   }
+};
+
+/**
+ * Get the secondary colour of a block.
+ * @return {?string} #RRGGBB string.
+ */
+Blockly.BlockSvg.prototype.getColourSecondary = function() {
+  return this.style.colourSecondary;
+};
+
+/**
+ * Get the tertiary colour of a block.
+ * @return {?string} #RRGGBB string.
+ */
+Blockly.BlockSvg.prototype.getColourTertiary = function() {
+  return this.style.colourTertiary;
+};
+
+/**
+ * Get the shadow colour of a block.
+ * @return {?string} #RRGGBB string.
+ * @deprecated Use style.colourSecondary. (2020 January 21)
+ */
+Blockly.BlockSvg.prototype.getColourShadow = function() {
+  return this.getColourSecondary();
+};
+
+/**
+ * Get the border colour(s) of a block.
+ * @return {{colourDark, colourLight, colourBorder}} An object containing
+ *     colour values for the border(s) of the block. If the block is using a
+ *     style the colourBorder will be defined and equal to the tertiary colour
+ *     of the style (#RRGGBB string). Otherwise the colourDark and colourLight
+ *     attributes will be defined (#RRGGBB strings).
+ * @deprecated Use style.colourTertiary. (2020 January 21)
+ */
+Blockly.BlockSvg.prototype.getColourBorder = function() {
+  var colourTertiary = this.getColourTertiary();
+  return {
+    colourBorder: colourTertiary,
+    colourLight: null,
+    colourDark: null
+  };
 };
 
 /**
@@ -972,10 +998,6 @@ Blockly.BlockSvg.prototype.dispose = function(healStack, animate) {
  * @package
  */
 Blockly.BlockSvg.prototype.applyColour = function() {
-  if (!this.rendered) {
-    // Non-rendered blocks don't have colour.
-    return;
-  }
   this.pathObject.applyColour(this);
 
   var icons = this.getIcons();
@@ -1144,6 +1166,11 @@ Blockly.BlockSvg.prototype.setMutator = function(mutator) {
     this.mutator = mutator;
     mutator.createIcon();
   }
+  if (this.rendered) {
+    this.render();
+    // Adding or removing a mutator icon will cause the block to change shape.
+    this.bumpNeighbours();
+  }
 };
 
 /**
@@ -1223,7 +1250,8 @@ Blockly.BlockSvg.prototype.getColour = function() {
  */
 Blockly.BlockSvg.prototype.setColour = function(colour) {
   Blockly.BlockSvg.superClass_.setColour.call(this, colour);
-  var styleObj = this.workspace.getTheme().getBlockStyleForColour(this.colour_);
+  var styleObj = this.workspace.getRenderer().getConstants()
+      .getBlockStyleForColour(this.colour_);
 
   this.pathObject.setStyle(styleObj.style);
   this.style = styleObj.style;
@@ -1238,7 +1266,8 @@ Blockly.BlockSvg.prototype.setColour = function(colour) {
  * @throws {Error} if the block style does not exist.
  */
 Blockly.BlockSvg.prototype.setStyle = function(blockStyleName) {
-  var blockStyle = this.workspace.getTheme().getBlockStyle(blockStyleName);
+  var blockStyle = this.workspace.getRenderer()
+      .getConstants().getBlockStyle(blockStyleName);
   this.styleName_ = blockStyleName;
 
   if (blockStyle) {
@@ -1731,8 +1760,8 @@ Blockly.BlockSvg.prototype.getHeightWidth = function() {
  * @param {boolean} add True if highlighting should be added.
  * @package
  */
-Blockly.BlockSvg.prototype.highlightForReplacement = function(add) {
-  this.pathObject.updateReplacementHighlight(add);
+Blockly.BlockSvg.prototype.fadeForReplacement = function(add) {
+  this.pathObject.updateReplacementFade(add);
 };
 
 /**

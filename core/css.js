@@ -216,14 +216,14 @@ Blockly.Css.CONTENT = [
     'cursor: pointer;',
   '}',
 
-  '.arrowTop {',
+  '.blocklyArrowTop {',
     'border-top: 1px solid;',
     'border-left: 1px solid;',
     'border-top-left-radius: 4px;',
     'border-color: inherit;',
   '}',
 
-  '.arrowBottom {',
+  '.blocklyArrowBottom {',
     'border-bottom: 1px solid;',
     'border-right: 1px solid;',
     'border-bottom-right-radius: 4px;',
@@ -338,6 +338,10 @@ Blockly.Css.CONTENT = [
   '.blocklyFlyout {',
     'position: absolute;',
     'z-index: 20;',
+  '}',
+
+  '.blocklyText text {',
+    'cursor: default;',
   '}',
 
   /*
@@ -485,7 +489,7 @@ Blockly.Css.CONTENT = [
     'padding-right: 28px;',
   '}',
 
-  '.blocklyVerticalCursor {',
+  '.blocklyVerticalMarker {',
     'stroke-width: 3px;',
     'fill: rgba(255,255,255,.5);',
   '}',
@@ -676,6 +680,10 @@ Blockly.Css.CONTENT = [
     'position: absolute;',
     'width: 0;',
     'height: 0;',
+  '}',
+
+  '.blocklyNoPointerEvents {',
+    'pointer-events: none;',
   '}',
   /* eslint-enable indent */
 ];

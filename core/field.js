@@ -204,6 +204,8 @@ Blockly.Field.prototype.getText_;
  * An optional method that can be defined to show an editor when the field is
  *     clicked. Blockly will automatically set the field as clickable if this
  *     method is defined.
+ * @param {Event=} opt_e Optional mouse event that triggered the field to open,
+ *     or undefined if triggered programmatically.
  * @return {void}
  * @protected
  */
@@ -331,7 +333,8 @@ Blockly.Field.prototype.createBorderRect_ = function() {
             'x': 0,
             'y': 0,
             'height': this.size_.height,
-            'width': this.size_.width
+            'width': this.size_.width,
+            'class': 'blocklyFieldRect'
           }, this.fieldGroup_));
 };
 
@@ -601,11 +604,13 @@ Blockly.Field.prototype.render_ = function() {
 
 /**
  * Show an editor when the field is clicked only if the field is clickable.
+ * @param {Event=} opt_e Optional mouse event that triggered the field to open,
+ *     or undefined if triggered programmatically.
  * @package
  */
-Blockly.Field.prototype.showEditor = function() {
+Blockly.Field.prototype.showEditor = function(opt_e) {
   if (this.isClickable()) {
-    this.showEditor_();
+    this.showEditor_(opt_e);
   }
 };
 
@@ -673,10 +678,35 @@ Blockly.Field.prototype.getSize = function() {
  * @package
  */
 Blockly.Field.prototype.getScaledBBox = function() {
-  var bBox = this.borderRect_.getBBox();
-  var xy = this.getAbsoluteXY_();
-  var scaledWidth = bBox.width * this.sourceBlock_.workspace.scale;
-  var scaledHeight = bBox.height * this.sourceBlock_.workspace.scale;
+  if (!this.borderRect_) {
+    // Browsers are inconsistent in what they return for a bounding box.
+    // - Webkit / Blink: fill-box / object bounding box
+    // - Gecko / Triden / EdgeHTML: stroke-box
+    var bBox = this.sourceBlock_.getHeightWidth();
+    var scale = this.sourceBlock_.workspace.scale;
+    var xy = this.getAbsoluteXY_();
+    var scaledWidth = bBox.width * scale;
+    var scaledHeight = bBox.height * scale;
+
+    if (Blockly.utils.userAgent.GECKO) {
+      xy.x += 1.5 * scale;
+      xy.y += 1.5 * scale;
+      scaledWidth += 1 * scale;
+      scaledHeight += 1 * scale;
+    } else {
+      if (!Blockly.utils.userAgent.EDGE && !Blockly.utils.userAgent.IE) {
+        xy.x -= 0.5 * scale;
+        xy.y -= 0.5 * scale;
+      }
+      scaledWidth += 1 * scale;
+      scaledHeight += 1 * scale;
+    }
+  } else {
+    var bBox = this.borderRect_.getBoundingClientRect();
+    var xy = Blockly.utils.style.getPageOffset(this.borderRect_);
+    var scaledWidth = bBox.width;
+    var scaledHeight = bBox.height;
+  }
   return {
     top: xy.y,
     bottom: xy.y + scaledHeight,

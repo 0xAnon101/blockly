@@ -1,6 +1,6 @@
 {
   "name": "blockly",
-  "version": "3.20191014.0-develop",
+  "version": "3.20200123.0-develop",
   "description": "Blockly is a library for building visual programming editors.",
   "keywords": [
     "blockly"
@@ -19,9 +19,11 @@
   "scripts": {
     "build": "gulp build",
     "build:blocks": "gulp build-blocks",
+    "build:compressed": "gulp build-compressed",
     "build:core": "gulp build-core",
-    "build:debug": "gulp build-core --verbose --strict",
+    "build:debug": "gulp build-compressed --verbose --strict",
     "build:debug:log": "npm run build:debug > build-debug.log 2>&1 && tail -3 build-debug.log",
+    "build:generators": "gulp build-generators",
     "build:langfiles": "gulp build-langfiles",
     "build:uncompressed": "gulp build-uncompressed",
     "bump": "npm version 3.$(date +'%Y%m%d').0",
@@ -30,7 +32,8 @@
     "postversion": "gulp postversion",
     "prepare": "npm run package",
     "preversion": "gulp preversion",
-    "release": "gulp release",
+    "prerelease": "gulp git-recompile",
+    "release": "gulp git-create-rc",
     "test": "concurrently 'npm run test:prepare' 'sleep 5 && npm run test:run'",
     "test:prepare": "npm run test:setupselenium && npm run test:startselenium",
     "test:run": "tests/run_all_tests.sh",
@@ -55,8 +58,8 @@
     "eslint": "^5.13.0",
     "eslint-plugin-es5": "^1.4.1",
     "fs": "0.0.1-security",
-    "google-closure-compiler": "^20191027.0.0",
-    "google-closure-deps": "20190121.0.0",
+    "google-closure-compiler": "^20200101.0.0",
+    "google-closure-deps": "^20200101.0.0",
     "gulp": "^4.0.2",
     "gulp-concat": "^2.6.1",
     "gulp-insert": "^0.5.0",

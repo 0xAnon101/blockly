@@ -25,12 +25,13 @@ goog.provide('Blockly.zelos.Renderer');
 
 goog.require('Blockly.blockRendering');
 goog.require('Blockly.blockRendering.Renderer');
+goog.require('Blockly.InsertionMarkerManager');
 goog.require('Blockly.utils.object');
 goog.require('Blockly.zelos.ConstantProvider');
 goog.require('Blockly.zelos.Drawer');
 goog.require('Blockly.zelos.PathObject');
 goog.require('Blockly.zelos.RenderInfo');
-goog.require('Blockly.zelos.CursorSvg');
+goog.require('Blockly.zelos.MarkerSvg');
 
 
 /**
@@ -84,27 +85,28 @@ Blockly.zelos.Renderer.prototype.makeDrawer_ = function(block, info) {
 /**
  * Create a new instance of the renderer's cursor drawer.
  * @param {!Blockly.WorkspaceSvg} workspace The workspace the cursor belongs to.
- * @param {boolean=} opt_marker True if the cursor is a marker. A marker is used
- *     to save a location and is an immovable cursor. False or undefined if the
- *     cursor is not a marker.
- * @return {!Blockly.blockRendering.CursorSvg} The cursor drawer.
+ * @param {!Blockly.Marker} marker The marker.
+ * @return {!Blockly.blockRendering.MarkerSvg} The object in charge of drawing
+ *     the marker.
  * @package
  * @override
  */
-Blockly.zelos.Renderer.prototype.makeCursorDrawer = function(
-    workspace, opt_marker) {
-  return new Blockly.zelos.CursorSvg(workspace, this.getConstants(), opt_marker);
+Blockly.zelos.Renderer.prototype.makeMarkerDrawer = function(
+    workspace, marker) {
+  return new Blockly.zelos.MarkerSvg(workspace, this.getConstants(), marker);
 };
 
 /**
  * Create a new instance of a renderer path object.
  * @param {!SVGElement} root The root SVG element.
+ * @param {!Blockly.Theme.BlockStyle} style The style object to use for
+ *     colouring.
  * @return {!Blockly.zelos.PathObject} The renderer path object.
  * @package
  * @override
  */
-Blockly.zelos.Renderer.prototype.makePathObject = function(root) {
-  return new Blockly.zelos.PathObject(root,
+Blockly.zelos.Renderer.prototype.makePathObject = function(root, style) {
+  return new Blockly.zelos.PathObject(root, style,
       /** @type {!Blockly.zelos.ConstantProvider} */ (this.getConstants()));
 };
 
@@ -118,69 +120,22 @@ Blockly.zelos.Renderer.prototype.shouldHighlightConnection = function(conn) {
 /**
  * @override
  */
-Blockly.zelos.Renderer.prototype.shouldInsertDraggedBlock = function(_block,
-    _conn) {
-  return false;
-};
+Blockly.zelos.Renderer.prototype.getConnectionPreviewMethod =
+    function(closest, local, topBlock) {
+      if (local.type == Blockly.OUTPUT_VALUE) {
+        if (!closest.isConnected()) {
+          return Blockly.InsertionMarkerManager.PREVIEW_TYPE.INPUT_OUTLINE;
+        }
+        // TODO: Returning this is a total hack, because we don't want to show
+        //   a replacement fade, we want to show an outline affect.
+        //   Sadly zelos does not support showing an outline around filled
+        //   inputs, so we have to pretend like the connected block is getting
+        //   replaced.
+        return Blockly.InsertionMarkerManager.PREVIEW_TYPE.REPLACEMENT_FADE;
+      }
 
-/**
- * @override
- */
-Blockly.zelos.Renderer.prototype.getCSS_ = function() {
-  var selector = '.' + this.name + '-renderer';
-  var constants = this.getConstants();
-  return [
-    /* eslint-disable indent */
-    // Fields.
-    selector + ' .blocklyText {',
-      'cursor: default;',
-      'fill: #fff;',
-      'font-family: ' + constants.FIELD_TEXT_FONTFAMILY + ';',
-      'font-size: ' + constants.FIELD_TEXT_FONTSIZE + 'pt;',
-      'font-weight: ' + constants.FIELD_TEXT_FONTWEIGHT + ';',
-    '}',
-    selector + ' .blocklyNonEditableText>text,',
-    selector + ' .blocklyEditableText>text,',
-    selector + ' .blocklyNonEditableText>g>text,',
-    selector + ' .blocklyEditableText>g>text {',
-      'fill: #575E75;',
-    '}',
-
-    // Editable field hover.
-    selector + ' .blocklyDraggable:not(.blocklyDisabled)',
-    ' .blocklyEditableText:not(.editing):hover>rect ,',
-    selector + ' .blocklyDraggable:not(.blocklyDisabled)',
-    ' .blocklyEditableText:not(.editing):hover>.blocklyPath {',
-      'stroke: #fff;',
-      'stroke-width: 2;',
-    '}',
-
-    // Text field input.
-    selector + ' .blocklyHtmlInput {',
-      'font-family: ' + constants.FIELD_TEXT_FONTFAMILY + ';',
-      'font-weight: ' + constants.FIELD_TEXT_FONTWEIGHT + ';',
-      'color: #575E75;',
-    '}',
-  
-    // Dropdown field.
-    selector + ' .blocklyDropdownText {',
-      'fill: #fff !important;',
-    '}',
-    // Widget and Dropdown Div
-    selector + '.blocklyWidgetDiv .goog-menuitem,',
-    selector + '.blocklyDropDownDiv .goog-menuitem {',
-      'font-family: ' + constants.FIELD_TEXT_FONTFAMILY + ';',
-    '}',
-    selector + '.blocklyDropDownDiv .goog-menuitem-content {',
-      'color: #fff;',
-    '}',
-
-    // Connection highlight.
-    selector + ' .blocklyHighlightedConnectionPath {',
-      'stroke: #fff200;',
-    '}',
-    /* eslint-enable indent */
-  ];
-};
+      return Blockly.zelos.Renderer.superClass_
+          .getConnectionPreviewMethod(closest, local, topBlock);
+    };
 
 Blockly.blockRendering.register('zelos', Blockly.zelos.Renderer);

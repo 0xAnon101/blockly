@@ -23,6 +23,8 @@
 
 goog.provide('Blockly.blockRendering.ConstantProvider');
 
+goog.require('Blockly.utils');
+goog.require('Blockly.utils.colour');
 goog.require('Blockly.utils.dom');
 goog.require('Blockly.utils.svgPaths');
 goog.require('Blockly.utils.userAgent');
@@ -125,6 +127,12 @@ Blockly.blockRendering.ConstantProvider = function() {
   this.DUMMY_INPUT_MIN_HEIGHT = this.TAB_HEIGHT;
 
   /**
+   * The minimum height of a dummy input row in a shadow block.
+   * @type {number}
+   */
+  this.DUMMY_INPUT_SHADOW_MIN_HEIGHT = this.TAB_HEIGHT;
+
+  /**
    * Rounded corner radius.
    * @type {number}
    */
@@ -136,6 +144,13 @@ Blockly.blockRendering.ConstantProvider = function() {
    * @type {number}
    */
   this.NOTCH_OFFSET_LEFT = 15;
+
+  /**
+   * Additional offset added to the statement input's width to account for the
+   * notch.
+   * @type {number}
+   */
+  this.STATEMENT_INPUT_NOTCH_OFFSET = this.NOTCH_OFFSET_LEFT;
 
   this.STATEMENT_BOTTOM_SPACER = 0;
   this.STATEMENT_INPUT_PADDING_LEFT = 20;
@@ -171,21 +186,21 @@ Blockly.blockRendering.ConstantProvider = function() {
   this.BOTTOM_ROW_AFTER_STATEMENT_MIN_HEIGHT = this.LARGE_PADDING;
 
   /**
-   * The maximum width of a bottom row that follows a statement input and has
-   * inputs inline.
-   * @type {number}
+   * Whether to add a 'hat' on top of all blocks with no previous or output
+   * connections. Can be overridden by 'hat' property on Theme.BlockStyle.
+   * @type {boolean}
    */
-  this.MAX_BOTTOM_WIDTH = 66.5;
+  this.ADD_START_HATS = false;
 
   /**
    * Height of the top hat.
-   * @private
+   * @type {number}
    */
   this.START_HAT_HEIGHT = 15;
 
   /**
    * Width of the top hat.
-   * @private
+   * @type {number}
    */
   this.START_HAT_WIDTH = 100;
 
@@ -216,13 +231,13 @@ Blockly.blockRendering.ConstantProvider = function() {
 
   /**
    * Height of SVG path for jagged teeth at the end of collapsed blocks.
-   * @const
+   * @type {number}
    */
   this.JAGGED_TEETH_HEIGHT = 12;
 
   /**
    * Width of SVG path for jagged teeth at the end of collapsed blocks.
-   * @const
+   * @type {number}
    */
   this.JAGGED_TEETH_WIDTH = 6;
 
@@ -275,6 +290,13 @@ Blockly.blockRendering.ConstantProvider = function() {
   this.FIELD_BORDER_RECT_Y_PADDING = 3;
 
   /**
+   * The backing colour of a field's border rect.
+   * @type {string}
+   * @package
+   */
+  this.FIELD_BORDER_RECT_COLOUR = '#fff';
+
+  /**
    * Field text baseline.
    * This is only used if `FIELD_TEXT_BASELINE_CENTER` is false.
    * @type {number}
@@ -301,6 +323,13 @@ Blockly.blockRendering.ConstantProvider = function() {
   this.FIELD_DROPDOWN_BORDER_RECT_HEIGHT = this.FIELD_BORDER_RECT_HEIGHT;
 
   /**
+   * Whether or not a dropdown field should add a border rect when in a shadow
+   * block.
+   * @type {boolean}
+   */
+  this.FIELD_DROPDOWN_NO_BORDER_RECT_SHADOW = false;
+
+  /**
    * Whether or not a dropdown field's div should be coloured to match the
    * block colours.
    * @type {boolean}
@@ -312,6 +341,35 @@ Blockly.blockRendering.ConstantProvider = function() {
    * @type {boolean}
    */
   this.FIELD_DROPDOWN_SVG_ARROW = false;
+
+  /**
+   * A dropdown field's SVG arrow padding.
+   * @type {number}
+   */
+  this.FIELD_DROPDOWN_SVG_ARROW_PADDING = this.FIELD_BORDER_RECT_X_PADDING;
+
+  /**
+   * A dropdown field's SVG arrow size.
+   * @type {number}
+   */
+  this.FIELD_DROPDOWN_SVG_ARROW_SIZE = 12;
+
+  /**
+   * A dropdown field's SVG arrow datauri.
+   * @type {string}
+   */
+  this.FIELD_DROPDOWN_SVG_ARROW_DATAURI =
+    'data:image/svg+xml;base64,PHN2ZyBpZD0iTGF5ZXJfMSIgZGF0YS1uYW1lPSJMYXllci' +
+    'AxIiB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSIxMi43MSIgaG' +
+    'VpZ2h0PSI4Ljc5IiB2aWV3Qm94PSIwIDAgMTIuNzEgOC43OSI+PHRpdGxlPmRyb3Bkb3duLW' +
+    'Fycm93PC90aXRsZT48ZyBvcGFjaXR5PSIwLjEiPjxwYXRoIGQ9Ik0xMi43MSwyLjQ0QTIuND' +
+    'EsMi40MSwwLDAsMSwxMiw0LjE2TDguMDgsOC4wOGEyLjQ1LDIuNDUsMCwwLDEtMy40NSwwTD' +
+    'AuNzIsNC4xNkEyLjQyLDIuNDIsMCwwLDEsMCwyLjQ0LDIuNDgsMi40OCwwLDAsMSwuNzEuNz' +
+    'FDMSwwLjQ3LDEuNDMsMCw2LjM2LDBTMTEuNzUsMC40NiwxMiwuNzFBMi40NCwyLjQ0LDAsMC' +
+    'wxLDEyLjcxLDIuNDRaIiBmaWxsPSIjMjMxZjIwIi8+PC9nPjxwYXRoIGQ9Ik02LjM2LDcuNz' +
+    'lhMS40MywxLjQzLDAsMCwxLTEtLjQyTDEuNDIsMy40NWExLjQ0LDEuNDQsMCwwLDEsMC0yYz' +
+    'AuNTYtLjU2LDkuMzEtMC41Niw5Ljg3LDBhMS40NCwxLjQ0LDAsMCwxLDAsMkw3LjM3LDcuMz' +
+    'dBMS40MywxLjQzLDAsMCwxLDYuMzYsNy43OVoiIGZpbGw9IiNmZmYiLz48L3N2Zz4=';
 
   /**
    * Whether or not to show a box shadow around the widget div. This is only a
@@ -350,6 +408,20 @@ Blockly.blockRendering.ConstantProvider = function() {
    * @type {number}
    */
   this.FIELD_CHECKBOX_Y_OFFSET = 14;
+
+  /**
+   * A checkbox field's default width.
+   * @type {number}
+   */
+  this.FIELD_CHECKBOX_DEFAULT_WIDTH = 15;
+
+  /**
+   * A random identifier used to ensure a unique ID is used for each
+   * filter/pattern for the case of multiple Blockly instances on a page.
+   * @type {string}
+   * @protected
+   */
+  this.randomIdentifier_ = String(Math.random()).substring(2);
 
   /**
    * The ID of the emboss filter, or the empty string if no filter is set.
@@ -428,13 +500,21 @@ Blockly.blockRendering.ConstantProvider = function() {
    */
   this.CURSOR_STROKE_WIDTH = 4;
 
-
-  /*
+  /**
    * Whether text input and colour fields fill up the entire source block.
    * @type {boolean}
    * @package
    */
   this.FULL_BLOCK_FIELDS = false;
+
+  /**
+   * Enum for connection shapes.
+   * @enum {number}
+   */
+  this.SHAPES = {
+    PUZZLE: 1,
+    NOTCH: 2
+  };
 };
 
 /**
@@ -482,6 +562,133 @@ Blockly.blockRendering.ConstantProvider.prototype.init = function() {
 };
 
 /**
+ * Refresh constants properties that depend on the theme.
+ * @param {!Blockly.Theme} theme The current workspace theme.
+ * @package
+ */
+Blockly.blockRendering.ConstantProvider.prototype.refreshTheme = function(
+    theme) {
+
+  /**
+   * The block styles map.
+   * @type {Object.<string, Blockly.Theme.BlockStyle>}
+   * @package
+   */
+  this.blockStyles = {};
+
+  var blockStyles = theme.blockStyles;
+  for (var key in blockStyles) {
+    this.blockStyles[key] = this.validatedBlockStyle_(blockStyles[key]);
+  }
+};
+
+/**
+ * Get or create a block style based on a single colour value.  Generate a name
+ * for the style based on the colour.
+ * @param {string} colour #RRGGBB colour string.
+ * @return {{style: !Blockly.Theme.BlockStyle, name: string}} An object
+ *     containing the style and an autogenerated name for that style.
+ * @package
+ */
+Blockly.blockRendering.ConstantProvider.prototype.getBlockStyleForColour =
+    function(colour) {
+    /* eslint-disable indent */
+  var name = 'auto_' + colour;
+  if (!this.blockStyles[name]) {
+    this.blockStyles[name] = this.createBlockStyle_(colour);
+  }
+  return {style: this.blockStyles[name], name: name};
+}; /* eslint-enable indent */
+
+/**
+ * Gets the BlockStyle for the given block style name.
+ * @param {?string} blockStyleName The name of the block style.
+ * @return {!Blockly.Theme.BlockStyle} The named block style, or a default style
+ *     if no style with the given name was found.
+ */
+Blockly.blockRendering.ConstantProvider.prototype.getBlockStyle = function(
+    blockStyleName) {
+  return this.blockStyles[blockStyleName || ''] ||
+      this.createBlockStyle_('#000000');
+};
+
+/**
+ * Create a block style object based on the given colour.
+ * @param {string} colour #RRGGBB colour string.
+ * @return {!Blockly.Theme.BlockStyle} A populated block style based on the
+ *     given colour.
+ * @protected
+ */
+Blockly.blockRendering.ConstantProvider.prototype.createBlockStyle_ = function(
+    colour) {
+  return this.validatedBlockStyle_({
+    'colourPrimary': colour
+  });
+};
+
+/**
+ * Get a full block style object based on the input style object.  Populate
+ * any missing values.
+ * @param {{
+ *     colourPrimary:string,
+ *     colourSecondary:(string|undefined),
+ *     colourTertiary:(string|undefined),
+ *     hat:(string|undefined)
+ * }} blockStyle A full or partial block style object.
+
+ * @return {!Blockly.Theme.BlockStyle} A full block style object, with all
+ *     required properties populated.
+ * @protected
+ */
+Blockly.blockRendering.ConstantProvider.prototype.validatedBlockStyle_ =
+    function(blockStyle) {
+    /* eslint-disable indent */
+  // Make a new object with all of the same properties.
+  var valid = /** @type {!Blockly.Theme.BlockStyle} */ ({});
+  if (blockStyle) {
+    Blockly.utils.object.mixin(valid, blockStyle);
+  }
+  // Validate required properties.
+  var parsedColour = Blockly.utils.parseBlockColour(
+      valid['colourPrimary'] || '#000');
+  valid.colourPrimary = parsedColour.hex;
+  valid.colourSecondary = valid['colourSecondary'] ?
+      Blockly.utils.parseBlockColour(valid['colourSecondary']).hex :
+      this.generateSecondaryColour_(valid.colourPrimary);
+  valid.colourTertiary = valid['colourTertiary'] ?
+      Blockly.utils.parseBlockColour(valid['colourTertiary']).hex :
+      this.generateTertiaryColour_(valid.colourPrimary);
+
+  valid.hat = valid['hat'] || '';
+  return valid;
+}; /* eslint-enable indent */
+
+/**
+ * Generate a secondary colour from the passed in primary colour.
+ * @param {string} colour Primary colour.
+ * @return {string} The generated secondary colour.
+ * @protected
+ */
+Blockly.blockRendering.ConstantProvider.prototype.generateSecondaryColour_ =
+    function(colour) {
+    /* eslint-disable indent */
+  return Blockly.utils.colour.blend('#fff', colour, 0.6) || colour;
+}; /* eslint-enable indent */
+
+/**
+ * Generate a tertiary colour from the passed in primary colour.
+ * @param {string} colour Primary colour.
+ * @return {string} The generated tertiary colour.
+ * @protected
+ */
+Blockly.blockRendering.ConstantProvider.prototype.generateTertiaryColour_ =
+    function(colour) {
+    /* eslint-disable indent */
+  return Blockly.utils.colour.blend('#fff', colour, 0.3) || colour;
+}; /* eslint-enable indent */
+
+
+/**
  * Dispose of this constants provider.
  * Delete all DOM elements that this provider created.
  * @package
@@ -507,9 +714,9 @@ Blockly.blockRendering.ConstantProvider.prototype.makeJaggedTeeth = function() {
   var mainPath =
       Blockly.utils.svgPaths.line(
           [
-            Blockly.utils.svgPaths.point(6, 3),
-            Blockly.utils.svgPaths.point(-12, 6),
-            Blockly.utils.svgPaths.point(6, 3)
+            Blockly.utils.svgPaths.point(width, height / 4),
+            Blockly.utils.svgPaths.point(-width * 2, height / 2),
+            Blockly.utils.svgPaths.point(width, height / 4)
           ]);
   return {
     height: height,
@@ -587,6 +794,7 @@ Blockly.blockRendering.ConstantProvider.prototype.makePuzzleTab = function() {
   var pathDown = makeMainPath(false);
 
   return {
+    type: this.SHAPES.PUZZLE,
     width: width,
     height: height,
     pathDown: pathDown,
@@ -616,6 +824,7 @@ Blockly.blockRendering.ConstantProvider.prototype.makeNotch = function() {
   var pathRight = makeMainPath(-1);
 
   return {
+    type: this.SHAPES.NOTCH,
     width: width,
     height: height,
     pathLeft: pathLeft,
@@ -726,10 +935,6 @@ Blockly.blockRendering.ConstantProvider.prototype.createDom = function(svg) {
   </defs>
   */
   var defs = Blockly.utils.dom.createSvgElement('defs', {}, svg);
-  // Each filter/pattern needs a unique ID for the case of multiple Blockly
-  // instances on a page.  Browser behaviour becomes undefined otherwise.
-  // https://neil.fraser.name/news/2015/11/01/
-  var rnd = String(Math.random()).substring(2);
   /*
     <filter id="blocklyEmbossFilter837493">
       <feGaussianBlur in="SourceAlpha" stdDeviation="1" result="blur" />
@@ -745,7 +950,7 @@ Blockly.blockRendering.ConstantProvider.prototype.createDom = function(svg) {
     </filter>
   */
   var embossFilter = Blockly.utils.dom.createSvgElement('filter',
-      {'id': 'blocklyEmbossFilter' + rnd}, defs);
+      {'id': 'blocklyEmbossFilter' + this.randomIdentifier_}, defs);
   Blockly.utils.dom.createSvgElement('feGaussianBlur',
       {'in': 'SourceAlpha', 'stdDeviation': 1, 'result': 'blur'}, embossFilter);
   var feSpecularLighting = Blockly.utils.dom.createSvgElement('feSpecularLighting',
@@ -789,7 +994,7 @@ Blockly.blockRendering.ConstantProvider.prototype.createDom = function(svg) {
   */
   var disabledPattern = Blockly.utils.dom.createSvgElement('pattern',
       {
-        'id': 'blocklyDisabledPattern' + rnd,
+        'id': 'blocklyDisabledPattern' + this.randomIdentifier_,
         'patternUnits': 'userSpaceOnUse',
         'width': 10,
         'height': 10
@@ -800,4 +1005,89 @@ Blockly.blockRendering.ConstantProvider.prototype.createDom = function(svg) {
       {'d': 'M 0 0 L 10 10 M 10 0 L 0 10', 'stroke': '#cc0'}, disabledPattern);
   this.disabledPatternId = disabledPattern.id;
   this.disabledPattern_ = disabledPattern;
+};
+
+/**
+ * Inject renderer specific CSS into the page.
+ * @param {string} name Name of the renderer.
+ * @package
+ */
+Blockly.blockRendering.ConstantProvider.prototype.injectCSS = function(
+    name) {
+  var cssArray = this.getCSS_(name);
+  var cssNodeId = 'blockly-renderer-style-' + name;
+  if (document.getElementById(cssNodeId)) {
+    // Already injected.
+    return;
+  }
+  var text = cssArray.join('\n');
+  // Inject CSS tag at start of head.
+  var cssNode = document.createElement('style');
+  cssNode.id = cssNodeId;
+  var cssTextNode = document.createTextNode(text);
+  cssNode.appendChild(cssTextNode);
+  document.head.insertBefore(cssNode, document.head.firstChild);
+};
+
+/**
+ * Get any renderer specific CSS to inject when the renderer is initialized.
+ * @param {string} name Name of the renderer.
+ * @return {!Array.<string>} Array of CSS strings.
+ * @protected
+ */
+Blockly.blockRendering.ConstantProvider.prototype.getCSS_ = function(name) {
+  var selector = '.' + name + '-renderer';
+  return [
+    /* eslint-disable indent */
+    // Fields.
+    selector + ' .blocklyText {',
+      'fill: #fff;',
+      'font-family: ' + this.FIELD_TEXT_FONTFAMILY + ';',
+      'font-size: ' + this.FIELD_TEXT_FONTSIZE + 'pt;',
+      'font-weight: ' + this.FIELD_TEXT_FONTWEIGHT + ';',
+    '}',
+    selector + ' .blocklyNonEditableText>rect,',
+    selector + ' .blocklyEditableText>rect {',
+      'fill: ' + this.FIELD_BORDER_RECT_COLOUR + ';',
+      'fill-opacity: .6;',
+      'stroke: none;',
+    '}',
+    selector + ' .blocklyNonEditableText>text,',
+    selector + ' .blocklyEditableText>text {',
+      'fill: #000;',
+    '}',
+
+    // Editable field hover.
+    selector + ' .blocklyEditableText:not(.editing):hover>rect {',
+      'stroke: #fff;',
+      'stroke-width: 2;',
+    '}',
+
+    // Text field input.
+    selector + ' .blocklyHtmlInput {',
+      'font-family: ' + this.FIELD_TEXT_FONTFAMILY + ';',
+      'font-weight: ' + this.FIELD_TEXT_FONTWEIGHT + ';',
+    '}',
+
+    // Selection highlight.
+    selector + ' .blocklySelected>.blocklyPath {',
+      'stroke: #fc3;',
+      'stroke-width: 3px;',
+    '}',
+
+    // Connection highlight.
+    selector + ' .blocklyHighlightedConnectionPath {',
+      'stroke: #fc3;',
+    '}',
+
+    // Replacable highlight.
+    selector + ' .blocklyReplaceable .blocklyPath {',
+      'fill-opacity: .5;',
+    '}',
+    selector + ' .blocklyReplaceable .blocklyPathLight,',
+    selector + ' .blocklyReplaceable .blocklyPathDark {',
+      'display: none;',
+    '}',
+    /* eslint-enable indent */
+  ];
 };
